@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AppCast Monitor</string>
+    <string name="a11y_description">读取当前前台应用并上报到你的服务器，用于实时显示“我正在哪个应用上”。只读取包名，不读取屏幕内容。</string>
+</resources>

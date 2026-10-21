@@ -1,0 +1,18 @@
+[Unit]
+Description=appcast 手机当前应用实时看板
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/proj/Qoderprojs/appcast
+ExecStart=/usr/bin/env sh /proj/Qoderprojs/appcast/start.sh
+Environment=NODE_OPTIONS=
+Restart=always
+RestartSec=3
+# 可选：以低权限运行
+# User=www
+# Group=www
+
+[Install]
+WantedBy=multi-user.target

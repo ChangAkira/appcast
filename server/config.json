@@ -1,0 +1,19 @@
+{
+  "host": "0.0.0.0",
+  "port": 4173,
+  "viewKey": "bPhCada64Off",
+  "offlineAfterSec": 90,
+  "historySize": 150,
+  "labels": {
+    "com.android.mms": "短信",
+    "com.miui.player": "音乐",
+    "com.android.chrome": "Chrome"
+  },
+  "devices": [
+    {
+      "id": "phone",
+      "name": "我的手机",
+      "token": "6184f94a5eaa9fac6a0c3e7c"
+    }
+  ]
+}

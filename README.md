@@ -20,6 +20,7 @@
 - 监听 `0.0.0.0:4173`，本机 iptables 为 ACCEPT；4173/tcp 在阿里云安全组此前已放行（换端口就要重新加规则）
 - 服务以 root 运行（`data/` 需要写权限）
 - 看板：`http://39.96.193.209:4173/?k=bPhCada64Off`
+- 正常对外服务中；暂停办法是放下维护开关（见「维护模式」一节）
 
 ## 目录
 
@@ -54,6 +55,15 @@ journalctl -u appcast -f
 ```
 
 改完 `server/config.json` 需要 `systemctl restart appcast`。
+
+## 维护模式
+
+```sh
+touch  /proj/Qoderprojs/appcast/data/maintenance   # 暂停：看板显示「更新功能中」，所有接口 503
+unlink /proj/Qoderprojs/appcast/data/maintenance   # 恢复：即时生效，无需重启
+```
+
+开关每个请求检查一次，所以切换不用重启进程。维护期间手机上报会被 503 丢弃（不缓存、不补录），恢复后手机下一次切换应用就会重新出现在看板上。维护页是 `web/maintenance.html`，可随意改文案，带 60 秒自动刷新。
 
 ## 对外访问
 

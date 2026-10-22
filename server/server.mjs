@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,6 +8,7 @@ const ROOT = join(HERE, '..');
 const WEB_DIR = join(ROOT, 'web');
 const DATA_DIR = join(ROOT, 'data');
 const STATE_PATH = join(DATA_DIR, 'state.json');
+const MAINT_FLAG = join(DATA_DIR, 'maintenance');
 
 const cfg = JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8'));
 if (process.env.APPCAST_HOST) cfg.host = process.env.APPCAST_HOST;
@@ -224,11 +225,29 @@ function parseBody(text, contentType = '') {
 
 const indexHtml = () => readFileSync(join(WEB_DIR, 'index.html'));
 
+// data/maintenance 存在 = 维护模式。touch 即停，rm 即恢复，无需重启。
+function maintenance(res, p) {
+  if (p === '/' || p === '/index.html') {
+    let html;
+    try {
+      html = readFileSync(join(WEB_DIR, 'maintenance.html'), 'utf8');
+    } catch {
+      html = '<meta charset="utf-8"><h1 style="font-family:sans-serif">更新功能中</h1>';
+    }
+    res.writeHead(503, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    return res.end(html);
+  }
+  if (p === '/healthz') return json(res, 503, { ok: false, maintenance: true });
+  return json(res, 503, { ok: false, error: 'maintenance' });
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
 
   try {
+    if (existsSync(MAINT_FLAG)) return maintenance(res, p);
+
     if (p === '/' || p === '/index.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return res.end(indexHtml());

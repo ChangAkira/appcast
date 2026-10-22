@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 校准用的「使用情况访问权限」：只能读到「哪个应用在前台」这一件事，读不到屏幕内容。
+         属于系统级权限，声明后仍需用户在 设置 → 使用情况访问权限 里手动授予；
+         不给也能用，只是退回纯事件模式（丢了事件要等下次切换才纠正）。 -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- 读取其它应用的显示名需要能看到它们（Android 11+ 包可见性） -->
     <queries>

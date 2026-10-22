@@ -4,5 +4,5 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
     android:description="@string/a11y_description"
-    android:notificationTimeout="120"
+    android:notificationTimeout="20"
     android:settingsActivity="app.cast.monitor.MainActivity" />

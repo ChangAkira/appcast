@@ -133,6 +133,8 @@ function snapshot() {
   return {
     now,
     offlineAfterSec: cfg.offlineAfterSec || 90,
+    maxSegHours: cfg.maxSegHours || 4,
+    historySize: HISTORY,
     devices: Object.values(state.devices).map((d) => ({
       ...d,
       online: now - d.lastSeen < OFFLINE_MS && d.lastSeen > 0,

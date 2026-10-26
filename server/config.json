@@ -3,7 +3,8 @@
   "port": 4173,
   "viewKey": "bPhCada64Off",
   "offlineAfterSec": 90,
-  "historySize": 150,
+  "historySize": 1000,
+  "maxSegHours": 4,
   "labels": {
     "com.android.mms": "短信",
     "com.miui.player": "音乐",

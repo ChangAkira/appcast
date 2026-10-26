@@ -28,7 +28,7 @@
 server/server.mjs     唯一的后端文件，零依赖，只用 Node 内置模块（约 260 行）
 server/config.json    端口、Token、设备列表、离线阈值
 web/index.html        看板页面，单文件，无框架、无外部 CDN
-data/state.json       运行态（每台设备最近 150 条记录），自动写盘
+data/state.json       运行态（每台设备最近 historySize 条记录，默认 1000），自动写盘
 docs/                 安卓端接入指南
 android/              可选的极简安卓 App 源码（无障碍服务方案）
 deploy/appcast.service systemd 单元样例
@@ -111,7 +111,8 @@ server {
   "port": 4173,
   "viewKey": "看板访问密钥",
   "offlineAfterSec": 90,
-  "historySize": 150,
+  "historySize": 1000,
+  "maxSegHours": 4,
   "labels": { "com.some.app": "我的应用" },
   "devices": [{ "id": "phone", "name": "我的手机", "token": "上报Token" }]
 }
@@ -137,6 +138,9 @@ server {
 
 ## 已知限制
 
-- 今日时长是**基于切换事件的估算**：息屏后手机停止上报，那段时间不计入任何应用；单段最长计 4 小时。要精确请用 `screen=off` 触发器。
+- 今日时长是**基于切换事件的估算**：只统计「应用在前台且屏幕亮着」的区间，息屏后手机停止上报，那段时间不计入任何应用。要更接近真实就用 `screen=off` 触发器。
+- 单段上限由 `maxSegHours` 控制（默认 4 小时），被截掉的部分会在列表底部写明「另有 X 被截断」，不静默吞掉。
+- 跨零点的使用算进今天：零点到今天第一个事件那一段，按昨天最后一条记录的状态归属；判断不了的记成「未记录」一行。
+- 时长条只显示前 8 名，其余合并为「其它（N 个应用）」，底部另有「今日合计」，长尾不再看不见。
 - 息屏瞬间若手机被系统冻结，最后一条记录可能缺失。
 - 页面不做多用户/权限分级，就是一块自用的屏幕。

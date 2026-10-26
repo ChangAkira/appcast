@@ -54,6 +54,7 @@
   .bar-dur { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 12px; }
   .bar { grid-column: 1 / -1; height: 6px; border-radius: 4px; background: var(--chip); overflow: hidden; }
   .bar > i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #38bdf8, #4ade80); }
+  .bars-foot { color: var(--dim); font-size: 12px; border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 2px; }
   .empty { color: var(--dim); font-size: 13px; }
   footer { color: #5b6478; font-size: 12px; text-align: center; }
   #gate { max-width: 420px; }
@@ -208,7 +209,63 @@
     if (i + 1 < list.length) return list[i + 1].ts;
     return d.online ? snap.now : Math.min(snap.now, d.lastSeen || snap.now);
   }
-  const MAX_SEG = 4 * 3600_000;
+  const maxSeg = () => (snap.maxSegHours || 4) * 3600_000;
+  const UNK = '未记录';
+
+  // 今日零点（本地时区）
+  function dayStartMs() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  // 把「事件 → 下一个事件」当作一段，累加今天的使用时长。
+  // 原来有三处会往小里漏：只显示前 8 名（长尾直接看不见）、今天第一个事件之前的
+  // 那段没人认领（跨零点的使用被丢掉）、单段超过 MAX_SEG 被截断。
+  // 这里统一算清楚，拿不准归属的时间显式列成「未记录」，而不是悄悄消失。
+  function todayTotals(d) {
+    const evs = d.events || [];
+    const day0 = dayStartMs();
+    const cap = maxSeg();
+    const i0 = evs.findIndex((e) => e.ts >= day0);
+    const total = new Map();
+    let counted = 0, capped = 0;
+    const add = (name, ms) => {
+      total.set(name, (total.get(name) || 0) + ms);
+      counted += ms;
+    };
+    if (i0 < 0) return { rows: [], counted: 0, capped: 0 };
+
+    const list = evs.slice(i0);
+
+    // 零点 → 今天第一个事件：归属看昨天最后一条事件说的状态
+    const headMs = Math.min(Math.max(0, list[0].ts - day0), cap);
+    if (headMs > 0) {
+      const prev = i0 > 0 ? evs[i0 - 1] : null;
+      if (!prev) add(UNK, headMs);                       // 没有昨天的记录，无从判断
+      else if (prev.screen && prev.screen !== 'on') { /* 零点时息屏，不算使用 */ }
+      else if (prev.pkg) add(prev.app || prev.pkg, headMs);
+      else add(UNK, headMs);
+    }
+
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (e.screen && e.screen !== 'on') continue;       // 息屏/锁屏时段不计
+      const ms = segEnd(d, i, list) - Math.max(e.ts, day0);
+      if (ms <= 0) continue;
+      if (ms > cap) { capped += ms - cap; add(e.app || e.pkg || '未知', cap); }
+      else add(e.app || e.pkg || '未知', ms);
+    }
+
+    const entries = [...total.entries()].sort((a, b) => b[1] - a[1]);
+    const TOP = 8;
+    const rest = entries.slice(TOP);
+    const rows = entries.slice(0, TOP);
+    if (rest.length) {
+      rows.push(['其它（' + rest.length + ' 个应用）', rest.reduce((s, [, ms]) => s + ms, 0)]);
+    }
+    return { rows, counted, capped };
+  }
 
   function renderList(host, rows, emptyText) {
     host.innerHTML = '';
@@ -237,7 +294,7 @@
       n.textContent = e.screen === 'off' ? '屏幕关闭' : e.screen === 'lock' ? '锁屏' : (e.app || e.pkg || '未知');
       const dd = document.createElement('span');
       dd.className = 'd';
-      const gap = Math.min(segEnd(d, i, list) - e.ts, MAX_SEG);
+      const gap = Math.min(segEnd(d, i, list) - e.ts, maxSeg());
       dd.textContent = i === list.length - 1 ? '进行中' : dur(gap);
       li.append(t, n, dd);
       rows.push(li);
@@ -248,22 +305,10 @@
   function renderBars() {
     const d = focusDevice();
     if (!d || !d.events.length) return void renderList(bars, [], '暂无数据');
-    const day = new Date(); day.setHours(0, 0, 0, 0);
-    const list = d.events.filter((e) => e.ts >= day.getTime());
-    if (!list.length) return void renderList(bars, [], '今天还没有记录');
-
-    const total = {};
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].screen && list[i].screen !== 'on') continue;
-      const ms = Math.min(segEnd(d, i, list) - list[i].ts, MAX_SEG);
-      if (ms <= 0) continue;
-      const name = list[i].app || list[i].pkg || '未知';
-      total[name] = (total[name] || 0) + ms;
-    }
-    const rows = Object.entries(total).sort((a, b) => b[1] - a[1]).slice(0, 8);
-    if (!rows.length) return void renderList(bars, [], '今天还没有记录');
-    const max = rows[0][1];
-    const barsRows = rows.map(([name, ms]) => {
+    const t = todayTotals(d);
+    if (!t.rows.length) return void renderList(bars, [], '今天还没有记录');
+    const max = Math.max(...t.rows.map((r) => r[1]));
+    const barsRows = t.rows.map(([name, ms]) => {
       const el = document.createElement('div');
       el.className = 'bar-row';
       const nm = document.createElement('span');
@@ -280,7 +325,11 @@
       el.append(nm, du, bar);
       return el;
     });
-    renderList(bars, barsRows, '今天还没有记录');
+    const foot = document.createElement('div');
+    foot.className = 'bars-foot';
+    foot.textContent = '今日合计 ' + dur(t.counted)
+      + (t.capped > 0 ? '（另有 ' + dur(t.capped) + ' 因单段超过 ' + (snap.maxSegHours || 4) + ' 小时被截断）' : '');
+    renderList(bars, barsRows.concat([foot]), '今天还没有记录');
   }
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
